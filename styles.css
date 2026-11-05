@@ -264,3 +264,19 @@ body::before{
 @media(max-width:600px){
   body{background-attachment:scroll}
 }
+
+
+/* OFFICIAL-PINASTER-LOGO */
+.brand{
+  width:190px;
+  height:58px;
+  display:block;
+  background-image:url("https://pinastermedioambiente.com/wp-content/uploads/2021/11/pinaster_logo.webp");
+  background-repeat:no-repeat;
+  background-position:left center;
+  background-size:contain;
+}
+.brand > *{display:none!important}
+@media(max-width:600px){
+  .brand{width:132px;height:46px}
+}
