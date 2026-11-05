@@ -1,5 +1,6 @@
 const STORAGE_KEY = "pinaster-overtime-v1";
 const SESSION_KEY = "pinaster-worker-session";
+const ADMIN_SESSION_KEY = "pinaster-admin-session";
 
 const seed = {
   workers: [
@@ -80,13 +81,15 @@ window.addEventListener("popstate", render);
 const tree = `<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M32 5 16 26h10L13 43h14v15h10V43h14L38 26h10L32 5Z" fill="currentColor"/></svg>`;
 
 function appShell(content, mode="home"){
+  const headerAction = mode==="admin"
+    ? `<div class="switch"><button class="active" data-route="/empresa">Empresa</button><button id="logout-admin">Salir</button></div>`
+    : mode==="worker"
+      ? `<div class="switch"><button class="active" data-route="/trabajador">Trabajador</button></div>`
+      : "";
   return `<div class="shell">
     <header class="topbar">
       <div class="brand"><span class="brand-mark">${tree}</span><span class="brand-copy"><span class="brand-name">PINASTER</span><small>MEDIO AMBIENTE</small></span></div>
-      <div class="switch">
-        <button class="${mode==="worker"?"active":""}" data-route="/trabajador">Trabajador</button>
-        <button class="${mode==="admin"?"active":""}" data-route="/admin">Empresa</button>
-      </div>
+      ${headerAction}
     </header>
     <main class="container">${content}</main>
   </div>`;
@@ -101,7 +104,6 @@ function home(){
         <p>Una herramienta interna inspirada en la identidad de Pinaster: natural, directa y profesional. El trabajador registra sus horas en segundos y la empresa mantiene todo ordenado y trazable.</p>
         <div class="hero-actions">
           <button class="btn primary" data-route="/trabajador">Entrar como trabajador</button>
-          <button class="btn secondary" data-route="/admin">Abrir panel empresa</button>
         </div>
       </div>
       <div class="hero-art">
@@ -116,8 +118,29 @@ function home(){
 }
 
 function currentWorkerId(){ return sessionStorage.getItem(SESSION_KEY); }
+function adminAuthenticated(){ return sessionStorage.getItem(ADMIN_SESSION_KEY)==="demo-admin"; }
+function setAdminSession(){ sessionStorage.setItem(ADMIN_SESSION_KEY,"demo-admin"); }
+function clearAdminSession(){ sessionStorage.removeItem(ADMIN_SESSION_KEY); }
 function setWorkerSession(id){ sessionStorage.setItem(SESSION_KEY,id); }
 function clearWorkerSession(){ sessionStorage.removeItem(SESSION_KEY); }
+
+function companyLogin(){
+  return appShell(`<div class="worker-wrap">
+    <div class="phone-card">
+      <div class="page-head"><div>
+        <div class="eyebrow" style="color:var(--green)">Acceso empresa</div>
+        <h1>Panel de administración</h1>
+        <p>Acceso reservado a responsables de PINASTER.</p>
+      </div></div>
+      <form id="admin-login-form" class="form-grid">
+        <div class="field full"><label>Usuario</label><input class="input" name="user" autocomplete="username" value="responsable" required></div>
+        <div class="field full"><label>PIN de administración</label><input class="input" name="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="••••" required></div>
+        <div class="field full"><button class="btn green" style="width:100%">Entrar al panel</button></div>
+      </form>
+      <p class="muted" style="font-size:.78rem;margin-bottom:0"><b>Modo demo:</b> PIN temporal 5678. Al conectar Supabase este acceso se sustituirá por autenticación real y permisos de servidor.</p>
+    </div>
+  </div>`, "admin");
+}
 
 function workerLogin(){
   return appShell(`<div class="worker-wrap">
@@ -221,9 +244,9 @@ function workerHistory(w){
 
 function adminLayout(content,active="registros"){
   const nav=[
-    ["registros","/admin","Registros"],
-    ["trabajadores","/admin/trabajadores","Trabajadores"],
-    ["config","/admin/configuracion","Configuración"]
+    ["registros","/empresa","Registros"],
+    ["trabajadores","/empresa/trabajadores","Trabajadores"],
+    ["config","/empresa/configuracion","Configuración"]
   ];
   return appShell(`<div class="layout-admin"><aside class="sidebar">
     ${nav.map(([id,path,label])=>`<button class="side-item ${active===id?"active":""}" data-route="${path}">${label}</button>`).join("")}
@@ -375,6 +398,17 @@ function bind(){
   document.querySelectorAll("[data-status]").forEach(b=>b.onclick=()=>{const [id,s]=b.dataset.status.split(":");setStatus(id,s)});
   document.querySelectorAll("#filter-text,#filter-status,#filter-worker,#filter-site").forEach(x=>x.addEventListener(x.tagName==="INPUT"?"input":"change",filterAdmin));
 
+  const adminLogin=document.getElementById("admin-login-form");
+  if(adminLogin) adminLogin.onsubmit=e=>{
+    e.preventDefault();
+    const fd=new FormData(adminLogin);
+    if(String(fd.get("user")||"").trim().toLowerCase()==="responsable" && fd.get("pin")==="5678"){
+      setAdminSession();
+      route("/empresa");
+    }else toast("Acceso de empresa incorrecto",true);
+  };
+  document.getElementById("logout-admin")?.addEventListener("click",()=>{clearAdminSession();route("/empresa")});
+
   const login=document.getElementById("login-form");
   if(login) login.onsubmit=e=>{e.preventDefault();const fd=new FormData(login);const w=worker(fd.get("workerId"));if(w&&w.pin===fd.get("pin")){setWorkerSession(w.id);route("/trabajador")}else toast("PIN incorrecto",true)};
 
@@ -406,10 +440,15 @@ function render(){
     else if(p==="/trabajador/finalizar") html=workerForm(w,false);
     else if(p==="/trabajador/historial") html=workerHistory(w);
     else html=workerDashboard(w);
-  } else if(p==="/admin/trabajadores") html=adminWorkers();
-  else if(p==="/admin/configuracion") html=adminConfig();
-  else if(p.startsWith("/admin")) html=adminDashboard();
-  else html=home();
+  } else if(p.startsWith("/admin")){
+    history.replaceState({}, "", p.replace(/^\/admin/, "/empresa"));
+    return render();
+  } else if(p.startsWith("/empresa")){
+    if(!adminAuthenticated()) html=companyLogin();
+    else if(p==="/empresa/trabajadores") html=adminWorkers();
+    else if(p==="/empresa/configuracion") html=adminConfig();
+    else html=adminDashboard();
+  } else html=home();
   root.innerHTML=html; bind();
 }
 function toast(msg,bad=false){
