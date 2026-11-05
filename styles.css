@@ -170,3 +170,97 @@ body{
   .brand-name{font-size:.8rem}
   .brand-mark{width:36px;height:36px}
 }
+
+
+/* BRAND-GUIDE-2026 */
+:root{
+  --pinaster-turq:#0ab89b;
+  --pinaster-green:#82c55c;
+  --pinaster-taupe:#8d7c60;
+  --pinaster-brown:#56483a;
+  --bg:#eaf1e8;
+  --ink:#26382d;
+  --muted:#6f766f;
+  --line:rgba(86,72,58,.18);
+  --green:#0ab89b;
+  --green-2:#315b48;
+  --soft:rgba(255,255,255,.72);
+  --amber:#82c55c;
+}
+body{
+  background:
+    radial-gradient(circle at 10% 8%,rgba(10,184,155,.18),transparent 28rem),
+    radial-gradient(circle at 92% 16%,rgba(130,197,92,.20),transparent 32rem),
+    linear-gradient(135deg,#dcebdd 0%,#eef2e6 44%,#dce8d8 100%);
+  background-attachment:fixed;
+}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  opacity:.16;
+  pointer-events:none;
+  background-image:
+    radial-gradient(ellipse at 15% 30%,rgba(86,72,58,.16) 0 2px,transparent 3px),
+    radial-gradient(ellipse at 85% 65%,rgba(10,184,155,.20) 0 2px,transparent 3px);
+  background-size:28px 28px,36px 36px;
+}
+.topbar{
+  background:rgba(238,244,235,.92);
+  border-bottom:1px solid rgba(86,72,58,.16);
+}
+.brand-mark{
+  background:linear-gradient(145deg,var(--pinaster-turq),var(--pinaster-green));
+}
+.brand-name{color:var(--pinaster-turq)}
+.brand-copy small{color:var(--pinaster-brown)}
+.switch button.active{
+  background:linear-gradient(135deg,var(--pinaster-turq),#20a88f);
+}
+.hero{
+  background:
+    linear-gradient(90deg,rgba(28,66,49,.94) 0%,rgba(28,66,49,.83) 56%,rgba(28,66,49,.56) 100%),
+    radial-gradient(circle at 85% 25%,rgba(130,197,92,.44),transparent 22rem),
+    linear-gradient(145deg,#315b48,#0a8f7a 72%,#82c55c);
+}
+.hero::before{
+  border-color:rgba(130,197,92,.10);
+}
+.hero .eyebrow{color:#c8e9bd;opacity:1}
+.hero h1{font-family:"New Garden Light","Trebuchet MS",system-ui,sans-serif;font-weight:500}
+.hero p{color:rgba(255,255,255,.88)}
+.btn.primary{
+  background:linear-gradient(135deg,var(--pinaster-green),#a5d77f);
+  color:#244331;
+}
+.btn.green{
+  background:linear-gradient(135deg,var(--pinaster-turq),#169a84);
+}
+.sidebar{
+  background:
+    radial-gradient(circle at 20% 8%,rgba(130,197,92,.20),transparent 10rem),
+    linear-gradient(180deg,#315b48,#233d31);
+}
+.side-item.active,.side-item:hover{background:rgba(10,184,155,.18)}
+.summary{
+  background:
+    radial-gradient(circle at 100% 0,rgba(130,197,92,.28),transparent 13rem),
+    linear-gradient(145deg,#315b48,#0d7564);
+}
+.start-btn{
+  background:linear-gradient(135deg,var(--pinaster-green),#a7d780);
+  color:#2c4936;
+}
+.kpi::before{background:linear-gradient(90deg,var(--pinaster-turq),var(--pinaster-green))}
+.page-head h1,.hero h1{color:inherit}
+.phone-card,.card,.kpi{
+  background:rgba(255,255,255,.88);
+  backdrop-filter:blur(10px);
+}
+.worker-wrap .phone-card{
+  box-shadow:0 24px 70px rgba(45,78,56,.16);
+}
+@media(max-width:600px){
+  body{background-attachment:scroll}
+}
