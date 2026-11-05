@@ -97,7 +97,7 @@ function home(){
     <section class="hero">
       <div class="hero-copy">
         <div class="eyebrow">PINASTER MEDIO AMBIENTE · Gestión interna</div>
-        <h1>Horas extra,<br>sin papel</h1>
+        <h1>Imputación de<br>horas extras</h1>
         <p>Una herramienta interna inspirada en la identidad de Pinaster: natural, directa y profesional. El trabajador registra sus horas en segundos y la empresa mantiene todo ordenado y trazable.</p>
         <div class="hero-actions">
           <button class="btn primary" data-route="/trabajador">Entrar como trabajador</button>
