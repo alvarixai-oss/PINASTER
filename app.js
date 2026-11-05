@@ -5,24 +5,24 @@ const seed = {
   workers: [
     { id:"w1", name:"Juan Pérez", role:"Operario de mantenimiento", pin:"1234", active:true },
     { id:"w2", name:"María López", role:"Encargada de obra", pin:"1234", active:true },
-    { id:"w3", name:"Carlos Rodríguez", role:"Operario de aserradero", pin:"1234", active:true },
-    { id:"w4", name:"Lucía Fernández", role:"Técnica forestal", pin:"1234", active:true }
+    { id:"w3", name:"Carlos Rodríguez", role:"Operario de zonas verdes", pin:"1234", active:true },
+    { id:"w4", name:"Lucía Fernández", role:"Técnica de jardinería", pin:"1234", active:true }
   ],
   sites: [
-    { id:"s1", name:"Mantenimiento", manager:"Ana Torres" },
-    { id:"s2", name:"Obra Norte", manager:"Roberto Gil" },
-    { id:"s3", name:"Obra Sur", manager:"Roberto Gil" },
-    { id:"s4", name:"Aserradero Central", manager:"Ana Torres" }
+    { id:"s1", name:"Mantenimiento de zonas verdes", manager:"Ana Torres" },
+    { id:"s2", name:"Obra de jardinería", manager:"Roberto Gil" },
+    { id:"s3", name:"Instalación de riego", manager:"Roberto Gil" },
+    { id:"s4", name:"Campos deportivos", manager:"Ana Torres" }
   ],
   records: [
-    rec("r1","w1","2026-11-03","17:30","19:30",0,"s1","Revisión preventiva de la línea de descortezado","aprobado","cronometro"),
-    rec("r2","w2","2026-11-04","18:00","20:30",15,"s2","Cierre de encofrado antes de lluvias","pendiente","cronometro"),
-    rec("r3","w3","2026-11-02","16:00","19:00",30,"s4","Pedido urgente de tablero para cliente","aprobado","cronometro"),
-    rec("r4","w4","2026-11-05","07:00","08:30",0,"s3","Inventario de parcela antes de la tala","pendiente","manual","Olvidé iniciar el contador"),
-    rec("r5","w1","2026-11-05","18:00","21:00",30,"s2","Reparación de grúa autopropulsada","pendiente","cronometro"),
-    rec("r6","w3","2026-11-04","17:00","18:00",0,"s1","Limpieza de zona de sierras","rechazado","manual"),
-    rec("r7","w2","2026-11-02","17:00","19:45",15,"s2","Recepción de material y control de calidad","aprobado","cronometro"),
-    rec("r8","w4","2026-11-03","16:30","18:30",0,"s4","Marcado de lotes de madera certificada","aprobado","cronometro")
+    rec("r1","w1","2026-11-03","17:30","19:30",0,"s1","Mantenimiento extraordinario de zona verde","aprobado","cronometro"),
+    rec("r2","w2","2026-11-04","18:00","20:30",15,"s2","Finalización de obra de jardinería antes de lluvias","pendiente","cronometro"),
+    rec("r3","w3","2026-11-02","16:00","19:00",30,"s4","Actuación urgente en césped deportivo","aprobado","cronometro"),
+    rec("r4","w4","2026-11-05","07:00","08:30",0,"s3","Revisión de instalación de riego","pendiente","manual","Olvidé iniciar el contador"),
+    rec("r5","w1","2026-11-05","18:00","21:00",30,"s2","Reparación de maquinaria de jardinería","pendiente","cronometro"),
+    rec("r6","w3","2026-11-04","17:00","18:00",0,"s1","Limpieza y acondicionamiento de finca","rechazado","manual"),
+    rec("r7","w2","2026-11-02","17:00","19:45",15,"s2","Recepción de planta y control de material","aprobado","cronometro"),
+    rec("r8","w4","2026-11-03","16:30","18:30",0,"s4","Tratamiento y revisión fitosanitaria","aprobado","cronometro")
   ],
   sessions: []
 };
@@ -82,7 +82,7 @@ const tree = `<svg viewBox="0 0 64 64" fill="none" aria-hidden="true"><path d="M
 function appShell(content, mode="home"){
   return `<div class="shell">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">${tree}</span><span>PINASTER</span></div>
+      <div class="brand"><span class="brand-mark">${tree}</span><span class="brand-copy"><span class="brand-name">PINASTER</span><small>MEDIO AMBIENTE</small></span></div>
       <div class="switch">
         <button class="${mode==="worker"?"active":""}" data-route="/trabajador">Trabajador</button>
         <button class="${mode==="admin"?"active":""}" data-route="/admin">Empresa</button>
@@ -96,9 +96,9 @@ function home(){
   return appShell(`
     <section class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">PINASTER · Gestión interna</div>
-        <h1>Control de<br>horas extra</h1>
-        <p>Registro sencillo para el trabajador. Control total para la empresa. Sin hojas de papel, sin cálculos manuales y con trazabilidad de cada registro.</p>
+        <div class="eyebrow">PINASTER MEDIO AMBIENTE · Gestión interna</div>
+        <h1>Horas extra,<br>sin papel</h1>
+        <p>Una herramienta interna inspirada en la identidad de Pinaster: natural, directa y profesional. El trabajador registra sus horas en segundos y la empresa mantiene todo ordenado y trazable.</p>
         <div class="hero-actions">
           <button class="btn primary" data-route="/trabajador">Entrar como trabajador</button>
           <button class="btn secondary" data-route="/admin">Abrir panel empresa</button>
@@ -235,7 +235,7 @@ function adminDashboard(){
   const pending=state.records.filter(r=>r.status==="pendiente");
   const approved=state.records.filter(r=>r.status==="aprobado").reduce((a,r)=>a+netMinutes(r),0);
   return adminLayout(`
-    <div class="page-head"><div><div class="eyebrow" style="color:var(--green)">PINASTER · Empresa</div><h1>Horas extra</h1><p>Control, revisión y aprobación centralizada.</p></div>
+    <div class="page-head"><div><div class="eyebrow" style="color:var(--green)">PINASTER MEDIO AMBIENTE · Empresa</div><h1>Horas extra</h1><p>Control, revisión y aprobación centralizada.</p></div>
       <div style="display:flex;gap:8px"><button class="btn ghost" id="export-csv">Exportar Excel</button><button class="btn green" id="print-pdf">Generar PDF</button></div>
     </div>
     <div class="grid4">
