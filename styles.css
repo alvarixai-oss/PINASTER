@@ -280,3 +280,19 @@ body::before{
 @media(max-width:600px){
   .brand{width:132px;height:46px}
 }
+
+
+/* LANDSCAPING-PHOTO-BACKGROUND */
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-2;
+  pointer-events:none;
+  background:
+    linear-gradient(rgba(229,239,226,.86),rgba(229,239,226,.90)),
+    url("https://images.pexels.com/photos/36499025/pexels-photo-36499025/free-photo-of-gardener-trimming-in-lush-park-setting.jpeg?auto=compress&dpr=1&w=1600") center/cover no-repeat;
+}
+.hero{
+  box-shadow:0 24px 70px rgba(39,75,54,.18);
+}
