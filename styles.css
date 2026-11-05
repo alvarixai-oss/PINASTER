@@ -296,3 +296,56 @@ body::after{
 .hero{
   box-shadow:0 24px 70px rgba(39,75,54,.18);
 }
+
+
+/* REGISTRO DE JORNADA + GPS */
+.attendance-card{
+  margin:0 0 18px;
+  padding:18px;
+  border:1px solid rgba(10,184,155,.22);
+  border-radius:18px;
+  background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(240,248,239,.92));
+  box-shadow:0 14px 34px rgba(31,72,49,.08);
+}
+.attendance-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.attendance-head h2{margin:4px 0 0;font-size:1.35rem}
+.attendance-actions{display:grid;gap:10px}
+.clock-btn{
+  width:100%;border:0;border-radius:14px;padding:16px 18px;font-weight:900;
+  cursor:pointer;box-shadow:0 10px 24px rgba(31,72,49,.10)
+}
+.clock-btn.in{background:linear-gradient(135deg,#82c55c,#a8d97c);color:#244331}
+.clock-btn.pause{background:#f3e3a7;color:#5b4a17}
+.clock-btn.out{background:#b84545;color:#fff}
+.gps-chip{
+  display:inline-flex;align-items:center;gap:6px;width:max-content;max-width:100%;
+  border-radius:999px;padding:5px 9px;background:#eef2eb;color:#5d6e62;
+  font-size:.72rem;font-weight:800;white-space:nowrap
+}
+.gps-chip.ok{background:#e8f5ec;color:#2f7b55}
+.gps-chip.bad{background:#fde9e9;color:#a33f3f}
+.privacy-note{
+  margin:12px 0 0;padding:10px 12px;border-radius:11px;
+  background:rgba(49,91,72,.06);color:var(--muted);font-size:.79rem;line-height:1.45
+}
+.mini-events{display:grid;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.mini-event{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mini-event span:first-child{min-width:0}
+.mini-event small{display:block;color:var(--muted);margin-top:2px}
+.compliance-strip{
+  margin-top:18px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#315b48,#0d7564);
+  color:#fff;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap
+}
+.compliance-strip span{font-size:.82rem;color:rgba(255,255,255,.82)}
+.legal-grid{display:grid;gap:10px}
+.legal-grid>div{padding:12px;border:1px solid var(--line);border-radius:12px;background:#fbfcf9}
+.legal-grid b{display:block;margin-bottom:4px}
+.legal-grid span{display:block;color:var(--muted);font-size:.86rem;line-height:1.4}
+.config-site{grid-template-columns:1fr auto!important}
+.site-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:600px){
+  .attendance-head,.mini-event{align-items:flex-start;flex-direction:column}
+  .gps-chip{white-space:normal}
+  .config-site{grid-template-columns:1fr!important}
+  .site-actions{justify-content:flex-start}
+}
