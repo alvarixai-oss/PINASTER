@@ -1,4 +1,4 @@
-const STORAGE_KEY = "pinaster-overtime-v1";
+const STORAGE_KEY = "pinaster-timekeeping-v2";
 const SESSION_KEY = "pinaster-worker-session";
 const ADMIN_SESSION_KEY = "pinaster-admin-session";
 
@@ -25,6 +25,7 @@ const seed = {
     rec("r7","w2","2026-11-02","17:00","19:45",15,"s2","Recepción de planta y control de material","aprobado","cronometro"),
     rec("r8","w4","2026-11-03","16:30","18:30",0,"s4","Tratamiento y revisión fitosanitaria","aprobado","cronometro")
   ],
+  timeEvents: [],
   sessions: []
 };
 
@@ -73,6 +74,9 @@ function today(){
 function hhmm(d=new Date()){
   return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
 }
+function fmtDateTime(iso){
+  return new Date(iso).toLocaleString("es-ES",{dateStyle:"short",timeStyle:"short"});
+}
 function worker(id){ return state.workers.find(x=>x.id===id); }
 function site(id){ return state.sites.find(x=>x.id===id); }
 function route(path){ history.pushState({}, "", path); render(); }
@@ -100,8 +104,8 @@ function home(){
     <section class="hero">
       <div class="hero-copy">
         <div class="eyebrow">PINASTER MEDIO AMBIENTE · Gestión interna</div>
-        <h1>Imputación de<br>horas extras</h1>
-        <p>Una herramienta interna inspirada en la identidad de Pinaster: natural, directa y profesional. El trabajador registra sus horas en segundos y la empresa mantiene todo ordenado y trazable.</p>
+        <h1>Registro de jornada<br>y horas extras</h1>
+        <p>Control de jornada para PINASTER: entrada, salida, descansos, horas extra y ubicación puntual en cada fichaje, con trazabilidad y separación de permisos.</p>
         <div class="hero-actions">
           <button class="btn primary" data-route="/trabajador">Entrar como trabajador</button>
         </div>
@@ -145,7 +149,7 @@ function companyLogin(){
 function workerLogin(){
   return appShell(`<div class="worker-wrap">
     <div class="phone-card">
-      <div class="page-head"><div><div class="eyebrow" style="color:var(--green)">Acceso trabajador</div><h1>Registrar horas extra</h1><p>Selecciona tu nombre e introduce tu PIN.</p></div></div>
+      <div class="page-head"><div><div class="eyebrow" style="color:var(--green)">Acceso trabajador</div><h1>Registro de jornada</h1><p>Selecciona tu nombre e introduce tu PIN para fichar y consultar tu jornada.</p></div></div>
       <form id="login-form" class="form-grid">
         <div class="field full"><label>Trabajador</label><select class="input" name="workerId" required>
           <option value="">Selecciona…</option>
@@ -172,7 +176,8 @@ function workerDashboard(w){
         <div><div class="muted">Buenas tardes,</div><h1 style="margin:.15rem 0 0">${w.name.split(" ")[0]}</h1><small class="muted">${w.role}</small></div>
         <div style="display:flex;gap:8px;align-items:center"><span class="avatar">${initials(w.name)}</span><button class="mini" id="logout-worker">Salir</button></div>
       </div>
-      <div class="summary"><div class="eyebrow">Noviembre 2026</div><strong>${fmtMinutes(total)}</strong><div>horas extra registradas</div>
+      ${attendanceCard(w)}
+      <div class="summary"><div class="eyebrow">Noviembre 2026 · Horas extra</div><strong>${fmtMinutes(total)}</strong><div>horas extra registradas</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px"><div><small>Aprobadas</small><b style="display:block">${fmtMinutes(approved)}</b></div><div><small>Pendientes</small><b style="display:block">${fmtMinutes(pending)}</b></div></div>
       </div>
       ${session ? activeTimer(session) : `<button class="start-btn" id="start-overtime">▶ Iniciar horas extra<div style="font-size:.75rem;font-weight:600;opacity:.68;margin-top:5px">Pulsa cuando empieces fuera de horario</div></button>`}
@@ -190,6 +195,96 @@ function activeTimer(s){
   return `<div class="timer-box"><div style="color:#a36d19;font-weight:850">● Horas extra en curso</div><div class="timer" id="live-timer" data-start="${s.startedAt}">00:00:00</div><div class="muted">Inicio: <b>${hhmm(new Date(s.startedAt))}</b></div>
   <button class="stop-btn" id="finish-overtime" style="margin-top:15px">■ Finalizar horas extra</button>
   <button class="mini" id="cancel-overtime" style="margin-top:8px">Cancelar sin guardar</button></div>`;
+}
+
+function attendanceEvents(workerId){
+  return (state.timeEvents||[]).filter(e=>e.workerId===workerId).sort((a,b)=>new Date(a.occurredAt)-new Date(b.occurredAt));
+}
+function latestAttendanceEvent(workerId){
+  const list=attendanceEvents(workerId);
+  return list.length?list[list.length-1]:null;
+}
+function attendanceState(workerId){
+  const e=latestAttendanceEvent(workerId);
+  if(!e||e.type==="clock_out") return "off";
+  if(e.type==="break_start") return "break";
+  return "working";
+}
+function currentShiftSite(workerId){
+  const list=attendanceEvents(workerId).slice().reverse();
+  for(const e of list){
+    if(e.type==="clock_out") return "";
+    if(e.type==="clock_in") return e.siteId||"";
+  }
+  return "";
+}
+function eventLabel(type){
+  return ({clock_in:"Entrada",break_start:"Inicio descanso",break_end:"Fin descanso",clock_out:"Salida"})[type]||type;
+}
+function locationBadge(e){
+  if(!e.latitude||!e.longitude) return '<span class="gps-chip bad">GPS no disponible</span>';
+  if(e.locationStatus==="outside") return `<span class="gps-chip bad">Fuera de zona · ${e.distanceM||"?"} m</span>`;
+  if(e.locationStatus==="verified") return `<span class="gps-chip ok">Ubicación verificada · ${e.distanceM||0} m</span>`;
+  return `<span class="gps-chip">GPS capturado · ±${Math.round(e.accuracy||0)} m</span>`;
+}
+function captureLocation(){
+  return new Promise(resolve=>{
+    if(!navigator.geolocation){ resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      p=>resolve({latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:p.coords.accuracy,capturedAt:new Date().toISOString()}),
+      ()=>resolve(null),
+      {enableHighAccuracy:true,timeout:9000,maximumAge:0}
+    );
+  });
+}
+function distanceMeters(lat1,lon1,lat2,lon2){
+  const R=6371000,toRad=v=>v*Math.PI/180;
+  const p1=toRad(lat1),p2=toRad(lat2),dp=toRad(lat2-lat1),dl=toRad(lon2-lon1);
+  const a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function classifyLocation(loc,siteId){
+  if(!loc) return {status:"unavailable",distanceM:null};
+  const s=site(siteId);
+  if(!s||s.lat==null||s.lon==null) return {status:"captured",distanceM:null};
+  const d=Math.round(distanceMeters(loc.latitude,loc.longitude,s.lat,s.lon));
+  return {status:d<=((s.radius||150)+(loc.accuracy||0))?"verified":"outside",distanceM:d};
+}
+async function addAttendanceEvent(w,type){
+  let siteId=type==="clock_in" ? (document.getElementById("clock-site")?.value||"") : currentShiftSite(w.id);
+  if(type==="clock_in"&&!siteId){ toast("Selecciona el centro u obra antes de fichar",true); return; }
+  toast("Capturando ubicación GPS…");
+  const loc=await captureLocation();
+  const check=classifyLocation(loc,siteId);
+  const event={
+    id:"te"+Date.now(),workerId:w.id,siteId,type,occurredAt:new Date().toISOString(),
+    latitude:loc?.latitude??null,longitude:loc?.longitude??null,accuracy:loc?.accuracy??null,
+    locationCapturedAt:loc?.capturedAt??null,locationStatus:check.status,distanceM:check.distanceM,
+    source:"web"
+  };
+  state.timeEvents=state.timeEvents||[];
+  state.timeEvents.push(event);
+  save();
+  render();
+  toast(loc ? `${eventLabel(type)} registrada con GPS` : `${eventLabel(type)} registrada · GPS no disponible`,!loc);
+}
+function attendanceCard(w){
+  const phase=attendanceState(w.id);
+  const recent=attendanceEvents(w.id).slice().reverse().slice(0,4);
+  const activeSite=currentShiftSite(w.id);
+  const phaseCopy=phase==="working"?"Jornada en curso":phase==="break"?"Descanso en curso":"Jornada no iniciada";
+  const actions=phase==="off"
+    ? `<select class="input" id="clock-site"><option value="">Selecciona centro / obra…</option>${state.sites.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("")}</select><button class="clock-btn in" data-clock-event="clock_in">● Iniciar jornada</button>`
+    : phase==="working"
+      ? `<button class="clock-btn pause" data-clock-event="break_start">Ⅱ Iniciar descanso</button><button class="clock-btn out" data-clock-event="clock_out">■ Finalizar jornada</button>`
+      : `<button class="clock-btn in" data-clock-event="break_end">▶ Reanudar jornada</button>`;
+  return `<section class="attendance-card">
+    <div class="attendance-head"><div><div class="eyebrow">Registro de jornada</div><h2>${phaseCopy}</h2></div><span class="gps-chip">GPS solo al fichar</span></div>
+    ${activeSite?`<div class="muted" style="margin-bottom:10px">Centro actual: <b>${escapeHtml(site(activeSite)?.name||"—")}</b></div>`:""}
+    <div class="attendance-actions">${actions}</div>
+    <p class="privacy-note">La ubicación se solicita únicamente al registrar entrada, descanso, reanudación o salida. No hay seguimiento continuo.</p>
+    ${recent.length?`<div class="mini-events">${recent.map(e=>`<div class="mini-event"><span><b>${eventLabel(e.type)}</b><small>${fmtDateTime(e.occurredAt)} · ${escapeHtml(site(e.siteId)?.name||"—")}</small></span>${locationBadge(e)}</div>`).join("")}</div>`:""}
+  </section>`;
 }
 
 function initials(name){ return name.split(" ").slice(0,2).map(x=>x[0]).join(""); }
@@ -242,9 +337,10 @@ function workerHistory(w){
   </div></div>`, "worker");
 }
 
-function adminLayout(content,active="registros"){
+function adminLayout(content,active="jornada"){
   const nav=[
-    ["registros","/empresa","Registros"],
+    ["jornada","/empresa","Jornada"],
+    ["overtime","/empresa/horas-extra","Horas extra"],
     ["trabajadores","/empresa/trabajadores","Trabajadores"],
     ["config","/empresa/configuracion","Configuración"]
   ];
@@ -276,7 +372,37 @@ function adminDashboard(){
         <select class="input" id="filter-site"><option value="">Todos los centros</option>${state.sites.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select>
       </div>
       <div id="records-table">${adminTable(state.records)}</div>
-    </div>`);
+    </div>`,"overtime");
+}
+
+function adminAttendance(){
+  const events=(state.timeEvents||[]).slice().sort((a,b)=>new Date(b.occurredAt)-new Date(a.occurredAt));
+  const todayKey=today();
+  const todayEvents=events.filter(e=>e.occurredAt.slice(0,10)===todayKey);
+  const active=state.workers.filter(w=>attendanceState(w.id)==="working").length;
+  const breaks=state.workers.filter(w=>attendanceState(w.id)==="break").length;
+  const incidents=events.filter(e=>e.locationStatus==="outside"||e.locationStatus==="unavailable").length;
+  return adminLayout(`
+    <div class="page-head"><div><div class="eyebrow" style="color:var(--green)">PINASTER · Registro legal de jornada</div><h1>Jornada laboral</h1><p>Entradas, salidas y descansos con trazabilidad y ubicación puntual.</p></div>
+      <div style="display:flex;gap:8px"><button class="btn ghost" id="export-attendance">Exportar registro</button><button class="btn green" onclick="window.print()">Generar PDF</button></div>
+    </div>
+    <div class="grid4">
+      <div class="kpi"><div class="label">Trabajando ahora</div><div class="value">${active}</div></div>
+      <div class="kpi"><div class="label">En descanso</div><div class="value">${breaks}</div></div>
+      <div class="kpi"><div class="label">Fichajes hoy</div><div class="value">${todayEvents.length}</div></div>
+      <div class="kpi"><div class="label">Incidencias GPS</div><div class="value">${incidents}</div></div>
+    </div>
+    <div class="compliance-strip"><b>España · Registro de jornada</b><span>Inicio y fin · Pausas · Trazabilidad · Conservación legal 4 años · GPS solo en el momento del fichaje</span></div>
+    <div class="card" style="margin-top:18px">
+      <h2 class="section-title">Eventos de jornada</h2>
+      ${attendanceAdminTable(events)}
+    </div>`,"jornada");
+}
+function attendanceAdminTable(events){
+  if(!events.length) return '<div class="empty">Todavía no hay fichajes de jornada. Entra como trabajador para probar entrada, descanso y salida.</div>';
+  return `<div class="table-wrap"><table class="table"><thead><tr><th>Trabajador</th><th>Evento</th><th>Fecha y hora</th><th>Centro</th><th>Ubicación</th></tr></thead><tbody>
+    ${events.map(e=>`<tr><td><b>${worker(e.workerId)?.name||"—"}</b></td><td>${eventLabel(e.type)}</td><td>${fmtDateTime(e.occurredAt)}</td><td>${escapeHtml(site(e.siteId)?.name||"—")}</td><td>${locationBadge(e)}</td></tr>`).join("")}
+  </tbody></table></div>`;
 }
 
 function adminTable(records){
@@ -300,12 +426,22 @@ function adminWorkers(){
 }
 
 function adminConfig(){
-  return adminLayout(`<div class="page-head"><div><h1>Configuración</h1><p>Centros de trabajo y responsables.</p></div><button class="btn ghost" id="reset-demo">Restaurar demo</button></div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
-    <div class="card"><h2 class="section-title">Centros / obras</h2><div class="list">${state.sites.map(s=>`<div class="record" style="grid-template-columns:1fr auto"><div><b>${escapeHtml(s.name)}</b><small>Responsable: ${escapeHtml(s.manager)}</small></div><button class="mini bad" data-remove-site="${s.id}">Eliminar</button></div>`).join("")}</div>
+  return adminLayout(`<div class="page-head"><div><h1>Configuración</h1><p>Centros, geovallas y criterios de cumplimiento.</p></div><button class="btn ghost" id="reset-demo">Restaurar demo</button></div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+    <div class="card"><h2 class="section-title">Centros / obras y GPS</h2><div class="list">${state.sites.map(s=>`<div class="record config-site"><div><b>${escapeHtml(s.name)}</b><small>Responsable: ${escapeHtml(s.manager)}</small><small>${s.lat!=null?"Geovalla configurada · "+(s.radius||150)+" m":"Geovalla pendiente"}</small></div><div class="site-actions"><button class="mini" data-set-site-gps="${s.id}">Fijar ubicación aquí</button><button class="mini bad" data-remove-site="${s.id}">Eliminar</button></div></div>`).join("")}</div>
       <form id="site-form" class="form-grid" style="margin-top:14px"><div class="field full"><input class="input" name="name" placeholder="Nuevo centro u obra" required></div><div class="field full"><input class="input" name="manager" placeholder="Responsable" required></div><div class="field full"><button class="btn green">Añadir centro</button></div></form>
     </div>
-    <div class="card"><h2 class="section-title">Cómo funciona</h2><p class="muted">El trabajador registra inicio y fin desde el móvil. El responsable revisa el registro en este panel y lo aprueba o rechaza. Los datos quedan guardados en este prototipo en el navegador.</p><p class="muted"><b>Siguiente fase:</b> conectar autenticación y base de datos para que todos los dispositivos compartan la misma información en tiempo real.</p></div>
+    <div class="card"><h2 class="section-title">Cumplimiento laboral · España</h2>
+      <div class="legal-grid">
+        <div><b>Registro diario</b><span>Entrada y salida concretas, con pausas registrables.</span></div>
+        <div><b>Conservación</b><span>El diseño de datos contempla un mínimo de 4 años para el registro horario.</span></div>
+        <div><b>Correcciones</b><span>El fichaje original no se borra: las rectificaciones quedan auditadas.</span></div>
+        <div><b>Geolocalización</b><span>Solo se solicita al fichar. No existe seguimiento GPS continuo.</span></div>
+        <div><b>Privacidad</b><span>La empresa debe informar previamente sobre el uso y finalidad de la geolocalización.</span></div>
+        <div><b>Convenio</b><span>Las reglas específicas se completarán por convenio colectivo, contrato y organización de empresa.</span></div>
+      </div>
+      <p class="privacy-note"><b>Estado técnico:</b> la estructura correspondiente ya está creada en Supabase. Esta interfaz conserva datos de demostración locales hasta sustituir el acceso temporal por autenticación real.</p>
+    </div>
   </div>`,"config");
 }
 
@@ -349,6 +485,15 @@ function filterAdmin(){
   });
   const target=document.getElementById("records-table");
   if(target) target.innerHTML=adminTable(list);
+}
+
+function exportAttendanceCsv(){
+  const rows=[["Trabajador","Evento","Fecha y hora","Centro","Latitud","Longitud","Precisión GPS","Estado ubicación"],
+    ...(state.timeEvents||[]).map(e=>[worker(e.workerId)?.name,eventLabel(e.type),fmtDateTime(e.occurredAt),site(e.siteId)?.name,e.latitude??"",e.longitude??"",e.accuracy??"",e.locationStatus])];
+  const csv=rows.map(row=>row.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(";")).join("\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="pinaster-registro-jornada.csv";a.click();URL.revokeObjectURL(a.href);
+  toast("Registro de jornada exportado");
 }
 
 function exportCsv(){
@@ -413,6 +558,16 @@ function bind(){
   if(login) login.onsubmit=e=>{e.preventDefault();const fd=new FormData(login);const w=worker(fd.get("workerId"));if(w&&w.pin===fd.get("pin")){setWorkerSession(w.id);route("/trabajador")}else toast("PIN incorrecto",true)};
 
   const logout=document.getElementById("logout-worker"); if(logout) logout.onclick=()=>{clearWorkerSession();render()};
+  document.querySelectorAll("[data-clock-event]").forEach(b=>b.onclick=()=>{const w=worker(currentWorkerId());if(w)addAttendanceEvent(w,b.dataset.clockEvent)});
+  document.querySelectorAll("[data-set-site-gps]").forEach(b=>b.onclick=async()=>{
+    toast("Capturando ubicación del centro…");
+    const loc=await captureLocation();
+    if(!loc){toast("No se pudo obtener la ubicación. Revisa el permiso GPS del navegador.",true);return;}
+    const s=site(b.dataset.setSiteGps);
+    if(!s)return;
+    s.lat=loc.latitude;s.lon=loc.longitude;s.radius=s.radius||150;
+    save();render();toast("Geovalla del centro configurada a 150 m");
+  });
   const start=document.getElementById("start-overtime"); if(start) start.onclick=()=>{const id=currentWorkerId();state.sessions=state.sessions.filter(s=>s.workerId!==id);state.sessions.push({workerId:id,startedAt:new Date().toISOString()});save();render();toast("Horas extra iniciadas")};
   const finish=document.getElementById("finish-overtime"); if(finish) finish.onclick=()=>route("/trabajador/finalizar");
   const cancel=document.getElementById("cancel-overtime"); if(cancel) cancel.onclick=()=>{state.sessions=state.sessions.filter(s=>s.workerId!==currentWorkerId());save();render();toast("Contador cancelado")};
@@ -423,6 +578,7 @@ function bind(){
   document.querySelectorAll("[data-remove-site]").forEach(b=>b.onclick=()=>{state.sites=state.sites.filter(s=>s.id!==b.dataset.removeSite);save();render();toast("Centro eliminado")});
   document.getElementById("reset-demo")?.addEventListener("click",resetState);
   document.getElementById("export-csv")?.addEventListener("click",exportCsv);
+  document.getElementById("export-attendance")?.addEventListener("click",exportAttendanceCsv);
   document.getElementById("print-pdf")?.addEventListener("click",()=>window.print());
   document.getElementById("modal-back")?.addEventListener("click",e=>{if(e.target.id==="modal-back")e.currentTarget.remove()});
   startTimerLoop();
@@ -445,9 +601,10 @@ function render(){
     return render();
   } else if(p.startsWith("/empresa")){
     if(!adminAuthenticated()) html=companyLogin();
+    else if(p==="/empresa/horas-extra") html=adminDashboard();
     else if(p==="/empresa/trabajadores") html=adminWorkers();
     else if(p==="/empresa/configuracion") html=adminConfig();
-    else html=adminDashboard();
+    else html=adminAttendance();
   } else html=home();
   root.innerHTML=html; bind();
 }
