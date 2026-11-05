@@ -227,6 +227,15 @@ function locationBadge(e){
   if(e.locationStatus==="verified") return `<span class="gps-chip ok">Ubicación verificada · ${e.distanceM||0} m</span>`;
   return `<span class="gps-chip">GPS capturado · ±${Math.round(e.accuracy||0)} m</span>`;
 }
+function overtimeLocationLink(loc,label){
+  if(!loc?.latitude||!loc?.longitude) return `<span class="gps-chip bad">${label}: sin GPS</span>`;
+  const q=encodeURIComponent(`${loc.latitude},${loc.longitude}`);
+  const status=loc.status==="outside"?"Fuera de zona":loc.status==="verified"?"Verificada":"Capturada";
+  return `<a class="gps-chip ${loc.status==="verified"?"ok":loc.status==="outside"?"bad":""}" href="https://www.google.com/maps?q=${q}" target="_blank" rel="noopener">${label}: ${status} · ver mapa</a>`;
+}
+function overtimeGpsSummary(r){
+  return `<div class="gps-stack">${overtimeLocationLink(r.startLocation,"Inicio")}${overtimeLocationLink(r.endLocation,"Fin")}</div>`;
+}
 function captureLocation(){
   return new Promise(resolve=>{
     if(!navigator.geolocation){ resolve(null); return; }
@@ -407,9 +416,9 @@ function attendanceAdminTable(events){
 
 function adminTable(records){
   const sorted=[...records].sort((a,b)=>(b.date+b.start).localeCompare(a.date+a.start));
-  return `<div class="table-wrap"><table class="table"><thead><tr><th>Trabajador</th><th>Fecha</th><th>Horario</th><th>Descanso</th><th>Horas netas</th><th>Centro</th><th>Motivo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+  return `<div class="table-wrap"><table class="table"><thead><tr><th>Trabajador</th><th>Fecha</th><th>Horario</th><th>Descanso</th><th>Horas netas</th><th>Centro</th><th>GPS</th><th>Motivo</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
     ${sorted.map(r=>`<tr>
-      <td><b>${worker(r.workerId)?.name||"—"}</b></td><td>${fmtDate(r.date)}</td><td>${r.start}–${r.end}</td><td>${r.breakMin} min</td><td><b>${fmtMinutes(netMinutes(r))}</b></td><td>${escapeHtml(site(r.siteId)?.name||"—")}</td><td>${escapeHtml(r.reason)}</td><td>${statusBadge(r.status)}</td>
+      <td><b>${worker(r.workerId)?.name||"—"}</b></td><td>${fmtDate(r.date)}</td><td>${r.start}–${r.end}</td><td>${r.breakMin} min</td><td><b>${fmtMinutes(netMinutes(r))}</b></td><td>${escapeHtml(site(r.siteId)?.name||"—")}</td><td>${overtimeGpsSummary(r)}</td><td>${escapeHtml(r.reason)}</td><td>${statusBadge(r.status)}</td>
       <td><div class="row-actions"><button class="mini" data-detail="${r.id}">Ver</button><button class="mini ok" data-status="${r.id}:aprobado">✓</button><button class="mini bad" data-status="${r.id}:rechazado">×</button></div></td>
     </tr>`).join("")}
   </tbody></table></div>`;
@@ -455,6 +464,7 @@ function recordDetail(id){
       <div class="field"><label>Descanso</label><div>${r.breakMin} min</div></div>
       <div class="field"><label>Centro</label><div>${escapeHtml(site(r.siteId)?.name||"—")}</div></div>
       <div class="field"><label>Origen</label><div>${r.source==="manual"?"Manual":"Cronómetro"}</div></div>
+      <div class="field full"><label>Ubicación de horas extra</label><div class="gps-stack">${overtimeLocationLink(r.startLocation,"Inicio")}${overtimeLocationLink(r.endLocation,"Fin")}</div></div>
       <div class="field full"><label>Motivo</label><div>${escapeHtml(r.reason)}</div></div>
       ${r.notes?`<div class="field full"><label>Observaciones</label><div>${escapeHtml(r.notes)}</div></div>`:""}
     </div>
@@ -497,26 +507,39 @@ function exportAttendanceCsv(){
 }
 
 function exportCsv(){
-  const rows=[["Trabajador","Fecha","Inicio","Fin","Descanso","Horas netas","Centro","Motivo","Estado"],
-    ...state.records.map(r=>[worker(r.workerId)?.name,r.date,r.start,r.end,r.breakMin,(netMinutes(r)/60).toFixed(2),site(r.siteId)?.name,r.reason,r.status])];
+  const rows=[["Trabajador","Fecha","Inicio","Fin","Descanso","Horas netas","Centro","GPS inicio lat","GPS inicio lon","GPS fin lat","GPS fin lon","Motivo","Estado"],
+    ...state.records.map(r=>[worker(r.workerId)?.name,r.date,r.start,r.end,r.breakMin,(netMinutes(r)/60).toFixed(2),site(r.siteId)?.name,r.startLocation?.latitude??"",r.startLocation?.longitude??"",r.endLocation?.latitude??"",r.endLocation?.longitude??"",r.reason,r.status])];
   const csv=rows.map(row=>row.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(";")).join("\n");
   const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="pinaster-horas-extra.csv"; a.click(); URL.revokeObjectURL(a.href);
   toast("Excel/CSV generado");
 }
 
-function submitWorkerForm(form,w,manual){
+async function submitWorkerForm(form,w,manual){
   const fd=new FormData(form);
+  const session=state.sessions.find(s=>s.workerId===w.id);
+  let endLoc=null;
+  if(!manual){
+    toast("Capturando ubicación de fin de horas extra…");
+    endLoc=await captureLocation();
+  }
+  const siteId=fd.get("siteId");
+  const startRaw=session?.startLocation||null;
+  const startCheck=classifyLocation(startRaw,siteId);
+  const endCheck=classifyLocation(endLoc,siteId);
+  const startLocation=startRaw?{...startRaw,status:startCheck.status,distanceM:startCheck.distanceM}:null;
+  const endLocation=endLoc?{...endLoc,status:endCheck.status,distanceM:endCheck.distanceM}:null;
   const r={
     id:"r"+Date.now(), workerId:w.id, date:fd.get("date"), start:fd.get("start"), end:fd.get("end"),
-    breakMin:Number(fd.get("breakMin")||0), siteId:fd.get("siteId"), reason:String(fd.get("reason")||"").trim(),
+    breakMin:Number(fd.get("breakMin")||0), siteId, reason:String(fd.get("reason")||"").trim(),
     notes:String(fd.get("notes")||"").trim(), status:"pendiente", source:manual?"manual":"cronometro",
-    history:[{at:new Date().toISOString(),by:w.name,action:manual?"Registro manual enviado":"Registro enviado desde cronómetro"}]
+    startLocation,endLocation,
+    history:[{at:new Date().toISOString(),by:w.name,action:manual?"Registro manual enviado":"Registro enviado desde cronómetro con ubicación de inicio y fin"}]
   };
   if(netMinutes(r)<=0){ toast("Revisa el horario indicado",true); return; }
   state.records.unshift(r);
   state.sessions=state.sessions.filter(s=>s.workerId!==w.id);
-  save(); toast("Registro enviado");
+  save(); toast(manual?"Registro enviado":(endLoc?"Registro enviado con GPS":"Registro enviado · GPS de salida no disponible"),!manual&&!endLoc);
   route("/trabajador");
 }
 
@@ -568,12 +591,20 @@ function bind(){
     s.lat=loc.latitude;s.lon=loc.longitude;s.radius=s.radius||150;
     save();render();toast("Geovalla del centro configurada a 150 m");
   });
-  const start=document.getElementById("start-overtime"); if(start) start.onclick=()=>{const id=currentWorkerId();state.sessions=state.sessions.filter(s=>s.workerId!==id);state.sessions.push({workerId:id,startedAt:new Date().toISOString()});save();render();toast("Horas extra iniciadas")};
+  const start=document.getElementById("start-overtime"); if(start) start.onclick=async()=>{
+    const id=currentWorkerId();
+    toast("Capturando ubicación de inicio de horas extra…");
+    const loc=await captureLocation();
+    state.sessions=state.sessions.filter(s=>s.workerId!==id);
+    state.sessions.push({workerId:id,startedAt:new Date().toISOString(),startLocation:loc});
+    save();render();
+    toast(loc?"Horas extra iniciadas con GPS":"Horas extra iniciadas · GPS no disponible",!loc);
+  };
   const finish=document.getElementById("finish-overtime"); if(finish) finish.onclick=()=>route("/trabajador/finalizar");
   const cancel=document.getElementById("cancel-overtime"); if(cancel) cancel.onclick=()=>{state.sessions=state.sessions.filter(s=>s.workerId!==currentWorkerId());save();render();toast("Contador cancelado")};
 
   const wf=document.getElementById("worker-overtime-form");
-  if(wf){const w=worker(currentWorkerId());const manual=location.pathname.endsWith("/manual");wf.onsubmit=e=>{e.preventDefault();submitWorkerForm(wf,w,manual)};wf.querySelectorAll(".calc-input").forEach(x=>x.addEventListener("input",()=>updatePreview(wf)));updatePreview(wf)}
+  if(wf){const w=worker(currentWorkerId());const manual=location.pathname.endsWith("/manual");wf.onsubmit=async e=>{e.preventDefault();await submitWorkerForm(wf,w,manual)};wf.querySelectorAll(".calc-input").forEach(x=>x.addEventListener("input",()=>updatePreview(wf)));updatePreview(wf)}
   const sf=document.getElementById("site-form"); if(sf) sf.onsubmit=e=>{e.preventDefault();const fd=new FormData(sf);state.sites.push({id:"s"+Date.now(),name:String(fd.get("name")).trim(),manager:String(fd.get("manager")).trim()});save();render();toast("Centro añadido")};
   document.querySelectorAll("[data-remove-site]").forEach(b=>b.onclick=()=>{state.sites=state.sites.filter(s=>s.id!==b.dataset.removeSite);save();render();toast("Centro eliminado")});
   document.getElementById("reset-demo")?.addEventListener("click",resetState);
