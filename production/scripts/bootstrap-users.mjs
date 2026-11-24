@@ -4,7 +4,7 @@
  *
  * Needs local environment variables:
  * SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- * PINASTER_FELIPE_FULLNAME, PINASTER_IVO_FULLNAME, PINASTER_MARCOS_FULLNAME,
+ * Display names are exactly Felipe, Ivo and Marcos, with no surnames,
  * PINASTER_IVO_SITE_ID (optional UUID for a real registered work site).
  * If omitted, Ivo will have no area data until Felipe assigns the real scope.
  * The service key must NEVER be committed or sent to chat.
@@ -23,20 +23,14 @@ if(url!=="https://"+ref+".supabase.co" || !serviceKey){
 if(process.env.VERCEL||process.env.CI){
  throw new Error("Esta operación solo se permite en el ordenador del responsable, no en CI/Vercel.");
 }
-function realName(envName){
- const name=process.env[envName]?.trim().replace(/\s+/g," ");
- if(!name||name.split(" ").length<2)throw new Error("Falta nombre y apellido reales: "+envName);
- if(name.length>160)throw new Error("Nombre demasiado largo en "+envName);
- return name;
-}
 const ivoSite=process.env.PINASTER_IVO_SITE_ID?.trim()||null;
 if(ivoSite&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ivoSite)){
  throw new Error("La sede de Ivo debe ser un UUID real de la base de producción.");
 }
 const people=[
- {username:"Felipe_Pinaster",name:realName("PINASTER_FELIPE_FULLNAME"),role:"superadmin",mfa:true,site:null},
- {username:"Ivo_Pinaster",name:realName("PINASTER_IVO_FULLNAME"),role:"area_lead",mfa:false,site:ivoSite},
- {username:"Marcos_Pinaster",name:realName("PINASTER_MARCOS_FULLNAME"),role:"operations_manager",mfa:false,site:null}
+ {username:"Felipe_Pinaster",name:"Felipe",role:"superadmin",mfa:true,site:null},
+ {username:"Ivo_Pinaster",name:"Ivo",role:"area_lead",mfa:false,site:ivoSite},
+ {username:"Marcos_Pinaster",name:"Marcos",role:"operations_manager",mfa:false,site:null}
 ];
 const db=createClient(url,serviceKey,{auth:{autoRefreshToken:false,persistSession:false}});
 if(ivoSite){
