@@ -5,7 +5,8 @@
  * Needs local environment variables:
  * SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
  * PINASTER_FELIPE_FULLNAME, PINASTER_IVO_FULLNAME, PINASTER_MARCOS_FULLNAME,
- * PINASTER_IVO_SITE_ID (UUID of a real registered work site).
+ * PINASTER_IVO_SITE_ID (optional UUID for a real registered work site).
+ * If omitted, Ivo will have no area data until Felipe assigns the real scope.
  * The service key must NEVER be committed or sent to chat.
  */
 import {createClient} from "@supabase/supabase-js";
@@ -28,9 +29,9 @@ function realName(envName){
  if(name.length>160)throw new Error("Nombre demasiado largo en "+envName);
  return name;
 }
-const ivoSite=process.env.PINASTER_IVO_SITE_ID?.trim();
-if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ivoSite||"")){
- throw new Error("Antes del alta se necesita PINASTER_IVO_SITE_ID, la sede REAL de Ivo.");
+const ivoSite=process.env.PINASTER_IVO_SITE_ID?.trim()||null;
+if(ivoSite&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ivoSite)){
+ throw new Error("La sede de Ivo debe ser un UUID real de la base de producción.");
 }
 const people=[
  {username:"Felipe_Pinaster",name:realName("PINASTER_FELIPE_FULLNAME"),role:"superadmin",mfa:true,site:null},
@@ -38,9 +39,11 @@ const people=[
  {username:"Marcos_Pinaster",name:realName("PINASTER_MARCOS_FULLNAME"),role:"operations_manager",mfa:false,site:null}
 ];
 const db=createClient(url,serviceKey,{auth:{autoRefreshToken:false,persistSession:false}});
-const {data:site,error:siteError}=await db.from("sites").select("id").eq("id",ivoSite).eq("is_active",true).maybeSingle();
-if(siteError)throw siteError;
-if(!site)throw new Error("La sede asignada a Ivo no existe o no está activa. Cree primero la sede real.");
+if(ivoSite){
+ const {data:site,error:siteError}=await db.from("sites").select("id").eq("id",ivoSite).eq("is_active",true).maybeSingle();
+ if(siteError)throw siteError;
+ if(!site)throw new Error("La sede asignada a Ivo no existe o no está activa.");
+}
 
 for(const p of people){
  const {data,error}=await db.from("employees").select("id").ilike("username",p.username).limit(1);
@@ -87,4 +90,5 @@ try{
  }
 }finally{closeSync(fd)}
 console.log("Altas terminadas. Credenciales entregables exclusivamente desde el archivo local: "+output);
+if(!ivoSite)console.log("ATENCION: Ivo se ha creado sin ámbito. Felipe debe crear el área real y asignársela antes de que Ivo pueda ver actuaciones.");
 console.log("Comparta las contraseñas individualmente y elimine el CSV tras el reparto. No lo suba a ningún repositorio.");
