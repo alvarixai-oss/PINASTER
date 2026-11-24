@@ -7,7 +7,7 @@ Este directorio no modifica ni sustituye la demo estática de la raíz del repos
 1. Verificar que **ninguna** clave de servicio se publica en GitHub, Vercel o el navegador.
 2. En Vercel, configurar ÚNICAMENTE `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (claves públicas). No guardar `SUPABASE_SERVICE_ROLE_KEY` en Vercel.
 3. Configurar en Supabase Auth: desactivar registros públicos, habilitar MFA TOTP, comprobar URL de aplicación y dominios autorizados, revisar rate limits / caducidad de sesiones.
-4. Confirmar nombres completos reales para Felipe, Ivo y Marcos y área/sede de Ivo; no inventar datos.
+4. Las cuentas iniciales usan exclusivamente los nombres Felipe, Marcos e Ivo (sin apellidos) y los usuarios Felipe_Pinaster, Marcos_Pinaster e Ivo_Pinaster. Si el ámbito real de Ivo aún no está definido, su acceso a datos de área queda restringido hasta asignárselo.
 5. Desde un ordenador seguro, con Node y el repositorio, configurar las variables **locales** `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`, y ejecutar `npm run bootstrap` UNA sola vez. El script crea los usuarios, asigna roles y genera un CSV **solo en ese ordenador** con permisos restrictivos. El CSV está excluido de Git.
 6. Distribuir las contraseñas individualmente y eliminar el CSV después del reparto. Si se extravía, restablecer contraseñas, nunca consultar hashes.
 7. Felipe debe activar MFA antes de que se autorice la lectura transversal de información operativa. No se exige cambio de contraseña en primer acceso, según decisión posterior del cliente.
