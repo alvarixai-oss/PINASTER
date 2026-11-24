@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+*.local
+*.csv
+credenciales*/
+pinaster-credenciales-*.csv
+.DS_Store
+*.log
