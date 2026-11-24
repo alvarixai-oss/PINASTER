@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDb, technicalEmail } from "../lib/supabase";
 
 const roleTitles={
- operations_manager:"Coordinación", area_lead:"Responsable de área",
+ superadmin:"Superadministrador",operations_manager:"Coordinación", area_lead:"Responsable de área",
  supervisor:"Supervisión", executive:"Dirección",workshop:"Taller",
  availability:"Comercial",operations_reader:"Administración operativa",
  user_admin:"Gestión de usuarios",security_admin:"Administración de seguridad",
