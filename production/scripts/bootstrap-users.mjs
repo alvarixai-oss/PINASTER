@@ -33,7 +33,7 @@ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ivoSi
  throw new Error("Antes del alta se necesita PINASTER_IVO_SITE_ID, la sede REAL de Ivo.");
 }
 const people=[
- {username:"Felipe_Pinaster",name:realName("PINASTER_FELIPE_FULLNAME"),role:"supervisor",mfa:true,site:null},
+ {username:"Felipe_Pinaster",name:realName("PINASTER_FELIPE_FULLNAME"),role:"superadmin",mfa:true,site:null},
  {username:"Ivo_Pinaster",name:realName("PINASTER_IVO_FULLNAME"),role:"area_lead",mfa:false,site:ivoSite},
  {username:"Marcos_Pinaster",name:realName("PINASTER_MARCOS_FULLNAME"),role:"operations_manager",mfa:false,site:null}
 ];
