@@ -40,10 +40,16 @@ if(ivoSite){
 }
 
 for(const p of people){
- const {data,error}=await db.from("employees").select("id").eq("username",p.username).is("auth_user_id",null).eq("is_active",false).limit(1);
+ const {data,error}=await db.from("employees").select("id,full_name,mfa_required").eq("username",p.username).is("auth_user_id",null).eq("is_active",false).limit(1);
  if(error)throw error;
- if(data?.length!==1)throw new Error("No existe el perfil piloto preparado: "+p.username);
+ if(data?.length!==1||data[0].full_name!==p.name||data[0].mfa_required!==p.mfa)
+  throw new Error("Perfil piloto inactivo no válido: "+p.username);
  p.employeeId=data[0].id;
+ const {data:roles,error:rolesError}=await db.from("user_roles").select("role_code,site_id").eq("employee_id",p.employeeId);
+ if(rolesError||roles?.length!==1||roles[0]?.role_code!==p.role)
+  throw new Error("El rol registrado no coincide para "+p.username);
+ if(p.site && roles[0].site_id && roles[0].site_id!==p.site)
+  throw new Error("El ámbito registrado no coincide para "+p.username);
 }
 const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
 function newPassword(length=20){let out="";for(let n=0;n<length;n++)out+=alphabet[randomInt(alphabet.length)];return out;}
