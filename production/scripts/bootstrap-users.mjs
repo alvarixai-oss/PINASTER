@@ -1,51 +1,90 @@
-/*
- * EXECUTE LOCALLY ONLY, never in a web request/build/Vercel.
- * Required variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
- * Optional real full names: PINASTER_FELIPE_FULLNAME, PINASTER_IVO_FULLNAME,
- * PINASTER_MARCOS_FULLNAME. Ivo needs a real site to gain area permissions:
- * PINASTER_IVO_SITE_ID. No fake area names or demo data.
+/**
+ * PINASTER 360 — One-time LOCAL account bootstrap only.
+ * Do NOT run on Vercel, GitHub Actions or any shared computer.
+ *
+ * Needs local environment variables:
+ * SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+ * PINASTER_FELIPE_FULLNAME, PINASTER_IVO_FULLNAME, PINASTER_MARCOS_FULLNAME,
+ * PINASTER_IVO_SITE_ID (UUID of a real registered work site).
+ * The service key must NEVER be committed or sent to chat.
  */
-import { createClient } from "@supabase/supabase-js";
-import { randomInt } from "node:crypto";
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
-const url=process.env.SUPABASE_URL;
-const secret=process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !secret || !url.startsWith("https://")) throw new Error("Configure SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY localmente.");
-if (!url.includes("bwjzmulohyjffvokpprk.supabase.co")) throw new Error("Destino inesperado: no se crearán cuentas en otra base.");
-const db=createClient(url,secret,{auth:{autoRefreshToken:false,persistSession:false}});
-const people=[
- {username:"Felipe_Pinaster",name:process.env.PINASTER_FELIPE_FULLNAME?.trim()||"Felipe",role:"supervisor",mfa:true},
- {username:"Ivo_Pinaster",name:process.env.PINASTER_IVO_FULLNAME?.trim()||"Ivo",role:"area_lead",mfa:false,site:process.env.PINASTER_IVO_SITE_ID||null},
- {username:"Marcos_Pinaster",name:process.env.PINASTER_MARCOS_FULLNAME?.trim()||"Marcos",role:"operations_manager",mfa:false}
-];
-const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
-function newPassword(length=20){let value="";for(let i=0;i<length;i++)value+=alphabet[randomInt(alphabet.length)];return value;}
-function csvEscape(s){return '"'+String(s).replaceAll('"','""')+'"';}
-const rows=[["usuario","contrasena_inicial","rol"]];
-for(const p of people){
- const {data:existing,error:checkError}=await db.from("employees").select("id").eq("username",p.username).maybeSingle();
- if(checkError) throw checkError;
- if(existing) throw new Error("Cuenta ya existente: "+p.username+"; detenga el proceso y revise el registro.");
- const password=newPassword();
- const {data:auth,error:authError}=await db.auth.admin.createUser({
-  email:p.username.toLowerCase()+"@pinaster.invalid", password, email_confirm:true,
-  app_metadata:{pinaster_username:p.username}
- });
- if(authError || !auth?.user?.id) throw authError||new Error("Error al crear identidad.");
- const {data:employee,error:profileError}=await db.from("employees").insert({
-  auth_user_id:auth.user.id,username:p.username,full_name:p.name,
-  is_active:true,mfa_required:p.mfa,first_login_pending:false,
-  site_id:p.site??null
- }).select("id").single();
- if(profileError){await db.auth.admin.deleteUser(auth.user.id);throw profileError}
- const {error:roleError}=await db.from("user_roles").insert({
-  employee_id:employee.id,role_code:p.role,site_id:p.site??null
- });
- if(roleError){throw new Error("Identidad creada pero asignación de rol fallida para "+p.username+": "+roleError.message)}
- rows.push([p.username,password,p.role]);
+import {createClient} from "@supabase/supabase-js";
+import {randomInt} from "node:crypto";
+import {openSync,writeSync,closeSync} from "node:fs";
+import {resolve} from "node:path";
+
+const ref="bwjzmulohyjffvokpprk";
+const url=process.env.SUPABASE_URL?.trim();
+const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+if(url!=="https://"+ref+".supabase.co" || !serviceKey){
+ throw new Error("Configure SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en el equipo local de confianza.");
 }
+if(process.env.VERCEL||process.env.CI){
+ throw new Error("Esta operación solo se permite en el ordenador del responsable, no en CI/Vercel.");
+}
+function realName(envName){
+ const name=process.env[envName]?.trim().replace(/\s+/g," ");
+ if(!name||name.split(" ").length<2)throw new Error("Falta nombre y apellido reales: "+envName);
+ if(name.length>160)throw new Error("Nombre demasiado largo en "+envName);
+ return name;
+}
+const ivoSite=process.env.PINASTER_IVO_SITE_ID?.trim();
+if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ivoSite||"")){
+ throw new Error("Antes del alta se necesita PINASTER_IVO_SITE_ID, la sede REAL de Ivo.");
+}
+const people=[
+ {username:"Felipe_Pinaster",name:realName("PINASTER_FELIPE_FULLNAME"),role:"supervisor",mfa:true,site:null},
+ {username:"Ivo_Pinaster",name:realName("PINASTER_IVO_FULLNAME"),role:"area_lead",mfa:false,site:ivoSite},
+ {username:"Marcos_Pinaster",name:realName("PINASTER_MARCOS_FULLNAME"),role:"operations_manager",mfa:false,site:null}
+];
+const db=createClient(url,serviceKey,{auth:{autoRefreshToken:false,persistSession:false}});
+const {data:site,error:siteError}=await db.from("sites").select("id").eq("id",ivoSite).eq("is_active",true).maybeSingle();
+if(siteError)throw siteError;
+if(!site)throw new Error("La sede asignada a Ivo no existe o no está activa. Cree primero la sede real.");
+
+for(const p of people){
+ const {data,error}=await db.from("employees").select("id").ilike("username",p.username).limit(1);
+ if(error)throw error;
+ if(data?.length)throw new Error("La cuenta "+p.username+" ya existe; no se recrean ni se sobreescriben usuarios.");
+}
+const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
+function newPassword(length=20){let out="";for(let n=0;n<length;n++)out+=alphabet[randomInt(alphabet.length)];return out;}
+const csvEscape=x=>'"'+String(x).replaceAll('"','""')+'"';
 const output=resolve(process.cwd(),"pinaster-credenciales-"+new Date().toISOString().slice(0,10)+".csv");
-writeFileSync(output,rows.map(r=>r.map(csvEscape).join(",")).join("\n")+"\n",{encoding:"utf8",mode:0o600,flag:"wx"});
-console.log("Cuentas creadas. Credenciales locales guardadas UNA VEZ en: "+output);
-console.log("No envíe este CSV por correo abierto. Distribuya cada clave en privado, luego elimínelo de forma segura.");
+const fd=openSync(output,"wx",0o600);
+try{
+ writeSync(fd,["usuario","contrasena_inicial","rol"].map(csvEscape).join(",")+"\n");
+ for(const p of people){
+  const password=newPassword();
+  const {data:identity,error:identityError}=await db.auth.admin.createUser({
+   email:p.username.toLowerCase()+"@pinaster.invalid",
+   password,email_confirm:true,
+   app_metadata:{pinaster_username:p.username}
+  });
+  if(identityError||!identity?.user?.id)throw identityError||new Error("Error al crear identidad.");
+  let createdEmployee=null;
+  try{
+   const {data:e,error:employeeError}=await db.from("employees").insert({
+     auth_user_id:identity.user.id,username:p.username,full_name:p.name,
+     site_id:p.site,is_active:true,mfa_required:p.mfa,first_login_pending:false
+   }).select("id").single();
+   if(employeeError)throw employeeError;
+   createdEmployee=e.id;
+   const {error:roleError}=await db.from("user_roles").insert({
+    employee_id:e.id,role_code:p.role,site_id:p.site
+   });
+   if(roleError)throw roleError;
+  }catch(err){
+   if(createdEmployee){
+    const {error:cleanupError}=await db.from("employees").delete().eq("id",createdEmployee);
+    if(cleanupError)throw new Error("Cuenta parcial, requiere revisión manual: "+p.username+". "+cleanupError.message);
+   }
+   await db.auth.admin.deleteUser(identity.user.id);
+   throw new Error("No se completó la cuenta "+p.username+". "+String(err.message||err));
+  }
+  // Flush immediately after each successfully provisioned account, even if a later one fails.
+  writeSync(fd,[p.username,password,p.role].map(csvEscape).join(",")+"\n");
+ }
+}finally{closeSync(fd)}
+console.log("Altas terminadas. Credenciales entregables exclusivamente desde el archivo local: "+output);
+console.log("Comparta las contraseñas individualmente y elimine el CSV tras el reparto. No lo suba a ningún repositorio.");
