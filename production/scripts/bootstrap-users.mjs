@@ -40,9 +40,10 @@ if(ivoSite){
 }
 
 for(const p of people){
- const {data,error}=await db.from("employees").select("id").ilike("username",p.username).limit(1);
+ const {data,error}=await db.from("employees").select("id").eq("username",p.username).is("auth_user_id",null).eq("is_active",false).limit(1);
  if(error)throw error;
- if(data?.length)throw new Error("La cuenta "+p.username+" ya existe; no se recrean ni se sobreescriben usuarios.");
+ if(data?.length!==1)throw new Error("No existe el perfil piloto preparado: "+p.username);
+ p.employeeId=data[0].id;
 }
 const alphabet="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
 function newPassword(length=20){let out="";for(let n=0;n<length;n++)out+=alphabet[randomInt(alphabet.length)];return out;}
