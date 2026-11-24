@@ -66,28 +66,27 @@ try{
    app_metadata:{pinaster_username:p.username}
   });
   if(identityError||!identity?.user?.id)throw identityError||new Error("Error al crear identidad.");
-  let createdEmployee=null;
+  let linked=false;
   try{
-   const {data:e,error:employeeError}=await db.from("employees").insert({
-     auth_user_id:identity.user.id,username:p.username,full_name:p.name,
-     site_id:p.site,is_active:true,mfa_required:p.mfa,first_login_pending:false
-   }).select("id").single();
-   if(employeeError)throw employeeError;
-   createdEmployee=e.id;
-   const {error:roleError}=await db.from("user_roles").insert({
-    employee_id:e.id,role_code:p.role,site_id:p.site
-   });
-   if(roleError)throw roleError;
+   const {data:e,error:employeeError}=await db.from("employees").update({
+     auth_user_id:identity.user.id,
+     site_id:p.site||null,is_active:true,first_login_pending:false
+   }).eq("id",p.employeeId).is("auth_user_id",null).eq("is_active",false)
+     .select("id").single();
+   if(employeeError||!e)throw employeeError||new Error("No se pudo vincular el perfil.");
+   linked=true;
+   // Store only in the local restricted CSV, never in the repo or logs.
+   writeSync(fd,[p.username,password,p.role].map(csvEscape).join(",")+"\n");
   }catch(err){
-   if(createdEmployee){
-    const {error:cleanupError}=await db.from("employees").delete().eq("id",createdEmployee);
-    if(cleanupError)throw new Error("Cuenta parcial, requiere revisión manual: "+p.username+". "+cleanupError.message);
+   if(linked){
+    const {error:rollbackError}=await db.from("employees")
+       .update({auth_user_id:null,is_active:false}).eq("id",p.employeeId);
+    if(rollbackError)throw new Error("Alta incompleta; requiere revisión manual para "+p.username);
    }
-   await db.auth.admin.deleteUser(identity.user.id);
-   throw new Error("No se completó la cuenta "+p.username+". "+String(err.message||err));
+   const {error:deleteError}=await db.auth.admin.deleteUser(identity.user.id);
+   if(deleteError)throw new Error("Identidad parcial sin limpiar; requiere revisión manual para "+p.username);
+   throw new Error("No se completó la cuenta "+p.username+": "+String(err.message||err));
   }
-  // Flush immediately after each successfully provisioned account, even if a later one fails.
-  writeSync(fd,[p.username,password,p.role].map(csvEscape).join(",")+"\n");
  }
 }finally{closeSync(fd)}
 console.log("Altas terminadas. Credenciales entregables exclusivamente desde el archivo local: "+output);
