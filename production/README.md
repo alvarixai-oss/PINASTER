@@ -29,3 +29,16 @@ Este directorio no modifica ni sustituye la demo estática de la raíz del repos
 QA con varias cuentas reales y permisos cruzados; SMS/correo para restablecer claves técnicas; importación CSV de trabajadores; cierre de brechas de sesiones/CSRF para endpoints propios; offline/PWA completos; generación PDF; control de conflictos avanzado; paneles de administración completos; monitorización y alertas; procedimiento de recuperación probado. El piloto no equivale a salida operativa.
 
 Steel Order sigue siendo independiente; no contiene facturación ni cobros.
+
+## Activación local en Windows (Felipe, Marcos e Ivo)
+
+Los tres registros de empleados **ya existen en la base** con sus roles, pero están inactivos y sin contraseña. No volver a insertarlos. La activación usa el script que los vincula a Supabase Auth sin duplicarlos.
+
+1. Descarga la rama `pinaster360-production` de GitHub en una **carpeta local no sincronizada**. Necesitas Node.js LTS.
+2. Abre PowerShell dentro de `production` y ejecuta `./scripts/alta-local.ps1`. Si Windows bloquea la ejecución, revisa el script e incorpora una excepción **solo para esta sesión** según las políticas de tu equipo.
+3. Introduce la clave de servicio de **pinaster360-production** cuando el equipo la solicite. No la envíes por chat, correo ni la añadas al código o a Vercel. El programa instala paquetes ANTES de solicitarla.
+4. El script verifica los tres registros y sus roles, crea las identidades de acceso y escribe las contraseñas de uso inicial en el CSV `pinaster-credenciales-AAAA-MM-DD.csv`, **solo en tu ordenador**. Nunca distribuyas el CSV completo; entrega únicamente la contraseña individual a cada titular.
+5. Accede con `Felipe_Pinaster`, `Marcos_Pinaster`, `Ivo_Pinaster`. Felipe debe configurar MFA. Ivo tendrá acceso a su área solo cuando se defina y asigne un ámbito real.
+6. Tras la distribución, elimina el CSV y vacía la papelera. Si una contraseña se extravía, cámbiala. No repitas el proceso de alta: las cuentas ya existirán.
+
+**Seguridad:** el asistente no crea, almacena ni conoce las contraseñas; su generación y custodia ocurre en el equipo del administrador. El despliegue de Vercel permanece protegido mientras no se complete el piloto, la verificación jurídica del fichaje y las pruebas de roles.
