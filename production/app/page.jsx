@@ -82,16 +82,46 @@ function Login({db,onSuccess}){
    setPassword("");onSuccess();
   }catch(e){setError(e.message)}finally{setBusy(false)}
  }
- return <div className="login-page"><section className="login">
- <div className="kicker">Portal privado · Producción</div><h1>Acceso a PINASTER 360</h1>
- <p>Accede con tu usuario corporativo y contraseña individual. No existe registro público.</p>
- <ErrorText error={error}/>
- <form onSubmit={signIn}>
-  <Field label="Usuario"><input autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} placeholder="Nombre_Pinaster" required/></Field>
-  <Field label="Contraseña"><input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required/></Field>
-  <button className="btn primary" disabled={busy} type="submit">{busy?"Verificando…":"Entrar"}</button>
- </form><p className="small">Las contraseñas se entregan individualmente. Si necesitas recuperarla, contacta con la administración de PINASTER.</p>
- </section></div>;
+ return (
+  <div className="login-experience">
+   <section className="login-entry" aria-label="Inicio de sesión">
+    <div className="login-brand">
+     <span className="login-brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none"><path d="M26 6C15 7 8 11 7.5 19A8 8 0 0 0 21 24C26.5 19.5 26 11 26 6Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M6 27C10 20 15 16 22 13" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+     </span>
+     <span><strong>PINASTER<span>360</span></strong><small>MEDIOAMBIENTE · GESTIÓN</small></span>
+    </div>
+    <div className="login-content">
+     <span className="login-protected">
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2 16 4.5v5.2c0 3.9-2.4 6.3-6 8.3-3.6-2-6-4.4-6-8.3V4.5L10 2Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/></svg>
+      Acceso protegido · Personal autorizado
+     </span>
+     <h1>Tu trabajo,<br/><span>todo conectado.</span></h1>
+     <p className="login-subtitle">Inicia sesión para consultar tus tareas, registrar tu jornada y gestionar tu trabajo desde un mismo lugar.</p>
+     <ErrorText error={error}/>
+     <form className="login-form" onSubmit={signIn}>
+      <Field label="Usuario corporativo"><input autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={e=>setUsername(e.target.value)} placeholder="Nombre_Pinaster" required/></Field>
+      <Field label="Contraseña"><input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Tu contraseña" required/></Field>
+      <button className="btn primary login-submit" disabled={busy} type="submit">
+       {busy?"Verificando acceso…":"Entrar en PINASTER 360"}
+       {!busy&&<span aria-hidden="true">→</span>}
+      </button>
+     </form>
+     <p className="login-help">El acceso se realiza únicamente con tu <strong>usuario PINASTER</strong> y tu contraseña. Si necesitas recuperarla, contacta con la administración de PINASTER.</p>
+    </div>
+   </section>
+   <aside className="login-story" aria-label="PINASTER Medioambiente">
+    <div className="login-story-art" aria-hidden="true">
+     <svg viewBox="0 0 90 90" fill="none"><path d="M71 14C43 18 21 29 22 52c0 13 11 23 24 23 21 0 30-26 25-61Z" stroke="currentColor" strokeWidth="5" strokeLinejoin="round"/><path d="M15 78C28 54 43 44 62 33" stroke="currentColor" strokeWidth="5" strokeLinecap="round"/></svg>
+    </div>
+    <div className="login-story-content">
+     <p className="login-story-eyebrow">PINASTER MEDIOAMBIENTE</p>
+     <h2>Una gestión más eficiente.<br/>Un equipo mejor conectado.</h2>
+     <p className="login-story-tagline">Plataforma operativa · Acceso corporativo seguro</p>
+    </div>
+   </aside>
+  </div>
+ );
 }
 function MfaGate({db,onDone}){
  const [enrollment,setEnrollment]=useState(null),[factor,setFactor]=useState(null);
@@ -401,7 +431,7 @@ export default function Page(){
  if(!db)return <><Header/><div className="login-page"><div className="login">
    <h1>PINASTER 360</h1><ErrorText error="Falta configurar la conexión segura de Supabase en Vercel."/></div></div></>;
  if(!ready)return <><Header/><div className="login-page"><div className="login">Verificando sesión de acceso…</div></div></>;
- if(!authUser)return <><Header/><Login db={db} onSuccess={refreshIdentity}/></>;
+ if(!authUser)return <Login db={db} onSuccess={refreshIdentity}/>;
  if(!me||!me.is_active)return <><Header/><div className="login-page"><div className="login"><h1>Acceso pendiente</h1>
  <p>Tu identidad todavía no está vinculada a un empleado activo. Contacta con la administración.</p>
  <button className="btn light" onClick={()=>db.auth.signOut()}>Cerrar sesión</button></div></div></>;
