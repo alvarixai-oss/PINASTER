@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDb, technicalEmail } from "../lib/supabase";
+import Administration from "../components/Administration";
 
 const roleTitles={
  superadmin:"Superadministrador",operations_manager:"Coordinación", area_lead:"Responsable de área",
@@ -17,6 +18,7 @@ const tabs=[
  {id:"maquinaria",title:"Maquinaria",check:"machines"},
  {id:"mensajes",title:"Comunicaciones",check:"all"},
  {id:"equipo",title:"Equipo",check:"employees"},
+ {id:"administracion",title:"Administración",check:"admin"},
 ];
 const punchKinds=[
  ["start","Entrada"],["break_start","Inicio de comida"],["break_end","Fin de comida"],["end","Salida"]
@@ -223,7 +225,8 @@ export default function Page(){
  const tabsAvailable=tabs.filter(t=>t.check==="all"||(t.check==="plan"&&has("plan.read.all","plan.read.site","plan.confirm"))||
   (t.check==="reports"&&has("reports.read.all","reports.read.site","reports.manage.all","reports.manage.site"))||
   (t.check==="machines"&&has("machines.read","machines.read.site","machines.manage","machines.availability.read"))||
-  (t.check==="employees"&&has("employees.read.all","employees.read.site","employees.manage")));
+  (t.check==="employees"&&has("employees.read.all","employees.read.site","employees.manage"))||
+  (t.check==="admin"&&has("employees.manage","roles.manage","permissions.manage")));
  const nameFor=(array,id,field="name")=>array.find(r=>r.id===id)?.[field]||shortId(id);
  const run=async(fn)=>{
   setError("");setNotice("");setBusy(true);
@@ -546,6 +549,7 @@ export default function Page(){
          nameFor(sites,e.site_id),e.is_active?"Activo":"Inactivo"])}
        empty="Los usuarios iniciales aún no se han dado de alta."/>
       <p className="small muted">Las contraseñas nunca se muestran ni se recuperan desde esta pantalla.</p></section>}
+    {tab==="administracion"&&<Administration db={db} me={me} can={can} sites={sites}/>}
     <footer className="footer">PINASTER 360 · Entorno privado de PINASTER MEDIOAMBIENTE · Datos alojados en la UE</footer>
    </main></div>
  </>;
